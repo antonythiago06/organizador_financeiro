@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS movimentacao (
     id_conta_financeira INT NOT NULL,
     id_categoria INT NOT NULL,
     titulo VARCHAR(255),
-    descricao VARCHAR(255) NOT NULL,
+    descricao VARCHAR(255),
     valor NUMERIC(10, 2) NOT NULL,
     tipo VARCHAR(20) NOT NULL,
     data_transacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

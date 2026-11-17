@@ -26,7 +26,7 @@ function Register() {
     setConfirmPasswordError(undefined);
 
     try {
-      const response = await fetch("http://localhost:3000/auth/register", {
+      const response = await fetch("http://localhost:3000/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -51,7 +51,7 @@ function Register() {
   }
 
   function handleGoogleRegister() {
-    window.location.href = "http://localhost:3000/auth/google";
+    window.location.href = "http://localhost:3000/api/auth/google";
   }
 
   return (

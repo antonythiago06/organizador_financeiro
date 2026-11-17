@@ -22,7 +22,7 @@ import SummaryCard from "../components/dashboard/SummaryCard";
 import AccountModal from "../components/modals/AccountModal";
 import type { Account, NewAccountInput } from "../types/account";
 
-const API_URL = "http://localhost:3000";
+const API_URL = "http://localhost:3000/api";
 
 const NAV_ITEMS: DashboardNavItem[] = [
   { key: "overview", label: "visão geral" },

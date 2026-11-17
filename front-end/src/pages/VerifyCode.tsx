@@ -151,7 +151,7 @@ function VerifyCode() {
     const fullCode = code.join("");
 
     try {
-      const response = await fetch("http://localhost:3000/auth/verify-code", {
+      const response = await fetch("http://localhost:3000/api/auth/verify-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

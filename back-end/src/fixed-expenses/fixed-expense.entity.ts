@@ -15,7 +15,7 @@ export class GastoFixo {
 
   /** Título do gasto fixo (ex.: "Conta de luz"). */
   @Column({ type: 'varchar' })
-  descricao: string;
+  titulo: string;
 
   @Column({ name: 'valor_estimado', type: 'numeric', precision: 10, scale: 2 })
   valorEstimado: string;

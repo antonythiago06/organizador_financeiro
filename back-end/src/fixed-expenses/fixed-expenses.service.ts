@@ -91,13 +91,13 @@ export class FixedExpensesService {
   async findAll(userId: number) {
     const expenses = await this.fixedExpensesRepository.find({
       where: { idUsuario: userId },
-      order: { diaVencimento: 'ASC', descricao: 'ASC' },
+      order: { diaVencimento: 'ASC', titulo: 'ASC' },
     });
 
     const rows = await this.queryPayments(
       this.dataSource,
       userId,
-      expenses.map((expense) => expense.descricao),
+      expenses.map((expense) => expense.titulo),
     );
 
     const paymentsByTitle = new Map<string, PaymentRow[]>();
@@ -109,7 +109,7 @@ export class FixedExpensesService {
     }
 
     return expenses.map((expense) =>
-      this.toResponse(expense, paymentsByTitle.get(expense.descricao) ?? []),
+      this.toResponse(expense, paymentsByTitle.get(expense.titulo) ?? []),
     );
   }
 
@@ -122,7 +122,7 @@ export class FixedExpensesService {
       saved = await this.fixedExpensesRepository.save(
         this.fixedExpensesRepository.create({
           idUsuario: userId,
-          descricao: dto.title,
+          titulo: dto.title,
           valorEstimado: dto.estimatedAmount.toFixed(2),
           diaVencimento: dto.dueDay,
           statusAtivo: true,
@@ -143,7 +143,7 @@ export class FixedExpensesService {
       saved = await this.dataSource.transaction(async (manager) => {
         const existing = await this.findOwnedOrFail(manager, userId, id, true);
 
-        if (dto.title !== undefined && dto.title !== existing.descricao) {
+        if (dto.title !== undefined && dto.title !== existing.titulo) {
           await this.assertTitleAvailable(manager, userId, dto.title, id);
 
           // O histórico é encontrado pelo título (JOIN com movimentações).
@@ -157,10 +157,10 @@ export class FixedExpensesService {
                 AND cat.nome = $2
                 AND m.id_usuario = $3
                 AND m.titulo = $4`,
-            [dto.title, FIXED_EXPENSE_CATEGORY, userId, existing.descricao],
+            [dto.title, FIXED_EXPENSE_CATEGORY, userId, existing.titulo],
           );
 
-          existing.descricao = dto.title;
+          existing.titulo = dto.title;
         }
 
         if (dto.estimatedAmount !== undefined) {
@@ -180,7 +180,7 @@ export class FixedExpensesService {
 
     return this.toResponse(
       saved,
-      await this.queryPayments(this.dataSource, userId, [saved.descricao]),
+      await this.queryPayments(this.dataSource, userId, [saved.titulo]),
     );
   }
 
@@ -205,7 +205,7 @@ export class FixedExpensesService {
 
     return this.toResponse(
       saved,
-      await this.queryPayments(this.dataSource, userId, [saved.descricao]),
+      await this.queryPayments(this.dataSource, userId, [saved.titulo]),
     );
   }
 
@@ -259,7 +259,7 @@ export class FixedExpensesService {
       const alreadyPaid = await this.queryPayments(
         manager,
         userId,
-        [expense.descricao],
+        [expense.titulo],
         first,
         last,
       );
@@ -285,8 +285,7 @@ export class FixedExpensesService {
           idUsuario: userId,
           idContaFinanceira: dto.accountId,
           idCategoria: category.id,
-          titulo: expense.descricao,
-          descricao: `Pagamento mensal do gasto fixo "${expense.descricao}".`,
+          titulo: expense.titulo,
           valor: amount.toFixed(2),
           tipo: 'DESPESA',
           dataTransacao: paymentDate,
@@ -340,7 +339,7 @@ export class FixedExpensesService {
     const rows = await this.queryPayments(
       this.dataSource,
       userId,
-      [expense.descricao],
+      [expense.titulo],
       query.startDate,
       query.endDate,
     );
@@ -442,7 +441,7 @@ export class FixedExpensesService {
       `SELECT id
          FROM gasto_fixo
         WHERE id_usuario = $1
-          AND LOWER(descricao) = LOWER($2)
+          AND LOWER(titulo) = LOWER($2)
           AND ($3::int IS NULL OR id <> $3::int)
         LIMIT 1`,
       [userId, title, ignoreId ?? null],
@@ -532,7 +531,7 @@ export class FixedExpensesService {
   private toResponse(expense: GastoFixo, payments: PaymentRow[]) {
     return {
       id: String(expense.id),
-      title: expense.descricao,
+      title: expense.titulo,
       estimatedAmount: Number(expense.valorEstimado),
       dueDay: expense.diaVencimento,
       isActive: expense.statusAtivo,

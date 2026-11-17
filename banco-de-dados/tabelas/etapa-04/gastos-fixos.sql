@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS gasto_fixo (
     id SERIAL PRIMARY KEY,
     id_usuario INT NOT NULL,
-    descricao VARCHAR(120) NOT NULL,
+    titulo VARCHAR(150) NOT NULL,
     valor_estimado NUMERIC(10, 2) NOT NULL,
     dia_vencimento INT NOT NULL,
     status_ativo BOOLEAN NOT NULL DEFAULT TRUE,

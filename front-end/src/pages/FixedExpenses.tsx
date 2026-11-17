@@ -15,66 +15,41 @@ import { useAuthenticatedUser } from "../hooks/useAuthenticatedUser";
 import { API_URL } from "../lib/api";
 import { formatCurrency } from "../lib/currency";
 import {
-  FIXED_EXPENSE_CATEGORY,
-  FIXED_EXPENSE_CATEGORY_COLOR,
   getTodayISO,
   hasPaymentInMonth,
-  loadFixedExpenses,
-  saveFixedExpenses,
   sortFixedExpenses,
 } from "../lib/fixedExpenses";
+import {
+  createFixedExpense,
+  deleteFixedExpense,
+  fetchFixedExpenses,
+  registerFixedExpensePayment,
+  updateFixedExpense,
+  updateFixedExpenseStatus,
+} from "../lib/fixedExpensesApi";
 import { DASHBOARD_NAV_ITEMS } from "../lib/navigation";
-import {
-  createId,
-  normalizeSearchText,
-  roundCurrency,
-} from "../lib/transactions";
-import {
-  createCategory,
-  createTransaction,
-  fetchAccounts,
-  fetchCategories,
-} from "../lib/transactionsApi";
+import { fetchAccounts } from "../lib/transactionsApi";
 import type { Account, NewAccountInput } from "../types/account";
 import type {
   FixedExpense,
   FixedExpenseFormInput,
-  FixedExpensePayment,
   FixedExpensePaymentInput,
 } from "../types/fixedExpense";
-import type { TransactionCategory } from "../types/transaction";
 
 /**
  * Página de Gastos Fixos.
  *
- * O fluxo completo (cadastro, edição, status, pagamento, histórico, filtros e
- * exclusão) funciona localmente nesta primeira versão. Os gastos são mantidos
- * em `localStorage` por `lib/fixedExpenses.ts`; as contas continuam vindo de
- * `GET /accounts`.
+ * Tudo vem do back-end (autenticado):
+ * - `GET/POST/PUT/DELETE /fixed-expenses` e `PATCH /fixed-expenses/:id/status`;
+ * - `POST /fixed-expenses/:id/payments` registra o pagamento do mês: o
+ *   servidor debita a conta e cria a movimentação de despesa (título do gasto
+ *   fixo + categoria "Gastos Fixos") na mesma transação;
+ * - o histórico de cada gasto é buscado em
+ *   `GET /fixed-expenses/:id/payments?startDate=&endDate=`;
+ * - as contas continuam vindo de `GET /accounts`.
  *
- * Cada pagamento mensal também cria uma despesa em `POST /transactions`,
- * usando a conta selecionada e a categoria padrão "Gastos Fixos". A API de
- * movimentações já atualiza o saldo da conta de forma atômica, e a página
- * recarrega `GET /accounts` para renderizar o novo saldo.
- *
- * TODO [BACKEND]: Substituir a persistência local pelas rotas autenticadas:
- * - GET    /api/fixed-expenses
- * - POST   /api/fixed-expenses
- * - PUT    /api/fixed-expenses/:id
- * - PATCH  /api/fixed-expenses/:id/status
- * - DELETE /api/fixed-expenses/:id
- * - POST   /api/fixed-expenses/:id/payments
- * - GET    /api/fixed-expenses/:id/payments?startDate=&endDate=
- * - upload do comprovante em multipart/form-data (PDF/JPG/PNG até 10 MB)
- *
- * TODO [BACKEND]: O endpoint de pagamento deve ser atômico: criar
- * `fixed_expense_payments`, criar a movimentação, debitar a conta e salvar o
- * comprovante na mesma transação SQL. Nesta versão o front-end cria a
- * movimentação via `POST /transactions` antes de registrar o pagamento local.
- *
- * A inativação deve apenas alterar `isActive`, preservando todo o histórico.
- * A exclusão do gasto fixo deve preservar as movimentações financeiras já
- * realizadas; o vínculo deve ser tratado no banco com `ON DELETE SET NULL`.
+ * A inativação apenas altera `isActive`, preservando todo o histórico. A
+ * exclusão do gasto fixo preserva as movimentações já realizadas.
  */
 function FixedExpenses() {
   const userName = useAuthenticatedUser();
@@ -83,22 +58,17 @@ function FixedExpenses() {
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
   const [accountsError, setAccountsError] = useState("");
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-  const [categories, setCategories] = useState<TransactionCategory[]>([]);
   const [lastPayment, setLastPayment] = useState<{
     accountId: string;
     amount: number;
     title: string;
   } | null>(null);
 
-  /**
-   * Lista de gastos fixos do usuário.
-   *
-   * Começa vazia: nenhum registro de exemplo é criado. O carregamento local
-   * existe apenas para preservar o fluxo durante o desenvolvimento do
-   * front-end; a fonte definitiva deve ser a API.
-   */
-  const [expenses, setExpenses] = useState<FixedExpense[]>(loadFixedExpenses);
+  const [expenses, setExpenses] = useState<FixedExpense[]>([]);
+  const [isLoadingExpenses, setIsLoadingExpenses] = useState(true);
+  const [expensesError, setExpensesError] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(
@@ -148,32 +118,33 @@ function FixedExpenses() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadCategories() {
+    async function loadExpenses() {
       try {
-        const data = await fetchCategories();
+        const data = await fetchFixedExpenses();
 
         if (isMounted) {
-          setCategories(data);
+          setExpenses(data);
+          setExpensesError("");
         }
       } catch (error) {
-        // Não bloqueia a listagem: a categoria é resolvida novamente no
-        // momento do pagamento.
-        console.error("Erro ao carregar categorias:", error);
+        console.error("Erro ao carregar gastos fixos:", error);
+
+        if (isMounted) {
+          setExpensesError("Não foi possível carregar seus gastos fixos agora.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingExpenses(false);
+        }
       }
     }
 
-    loadCategories();
+    loadExpenses();
 
     return () => {
       isMounted = false;
     };
   }, []);
-
-  // Mantém o fluxo local disponível após recarregar a página.
-  // TODO [BACKEND]: Remover ao integrar GET/POST/PUT/DELETE /api/fixed-expenses.
-  useEffect(() => {
-    saveFixedExpenses(expenses);
-  }, [expenses]);
 
   useEffect(() => {
     if (!feedback) {
@@ -185,6 +156,18 @@ function FixedExpenses() {
     return () => window.clearTimeout(timer);
   }, [feedback]);
 
+  useEffect(() => {
+    if (!actionError) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setActionError(""), 6000);
+
+    return () => window.clearTimeout(timer);
+  }, [actionError]);
+
+  const isLoading = isLoadingAccounts || isLoadingExpenses;
+  const loadError = accountsError || expensesError;
   const sortedExpenses = useMemo(() => sortFixedExpenses(expenses), [expenses]);
   const hasAccounts = accounts.length > 0;
   const activeAccount = accounts[0] ?? null;
@@ -204,41 +187,28 @@ function FixedExpenses() {
     setEditingExpense(null);
   }, []);
 
+  // Os erros do servidor (ex.: título repetido) sobem para o formulário, que
+  // os exibe sem fechar a modal.
   const handleSubmitExpense = useCallback(
     async (input: FixedExpenseFormInput) => {
       if (editingExpense) {
-        // TODO [BACKEND]: Conectar PUT /api/fixed-expenses/:id.
-        // Enviar título, valor estimado e dia de vencimento.
+        const updatedExpense = await updateFixedExpense(
+          editingExpense.id,
+          input,
+        );
+
         setExpenses((currentExpenses) =>
           currentExpenses.map((expense) =>
-            expense.id === editingExpense.id
-              ? {
-                  ...expense,
-                  title: input.title,
-                  estimatedAmount: input.estimatedAmount,
-                  dueDay: input.dueDay,
-                }
-              : expense,
+            expense.id === updatedExpense.id ? updatedExpense : expense,
           ),
         );
 
-        setFeedback(`Gasto fixo "${input.title}" atualizado com sucesso.`);
+        setFeedback(`Gasto fixo "${updatedExpense.title}" atualizado com sucesso.`);
       } else {
-        // TODO [BACKEND]: Conectar POST /api/fixed-expenses.
-        // O servidor deve devolver o `id` e `createdAt` definitivos.
-        const newExpense: FixedExpense = {
-          id: createId("fixed-expense"),
-          title: input.title,
-          estimatedAmount: input.estimatedAmount,
-          dueDay: input.dueDay,
-          isActive: true,
-          category: FIXED_EXPENSE_CATEGORY,
-          createdAt: new Date().toISOString(),
-          payments: [],
-        };
+        const createdExpense = await createFixedExpense(input);
 
-        setExpenses((currentExpenses) => [...currentExpenses, newExpense]);
-        setFeedback(`Gasto fixo "${input.title}" cadastrado com sucesso.`);
+        setExpenses((currentExpenses) => [...currentExpenses, createdExpense]);
+        setFeedback(`Gasto fixo "${createdExpense.title}" cadastrado com sucesso.`);
       }
 
       setIsFormModalOpen(false);
@@ -247,22 +217,33 @@ function FixedExpenses() {
     [editingExpense],
   );
 
-  const handleToggleStatus = useCallback((expense: FixedExpense) => {
-    // TODO [BACKEND]: Chamar PATCH /api/fixed-expenses/:id/status.
-    // A inativação não deve excluir o gasto nem o histórico de pagamentos.
-    setExpenses((currentExpenses) =>
-      currentExpenses.map((currentExpense) =>
-        currentExpense.id === expense.id
-          ? { ...currentExpense, isActive: !currentExpense.isActive }
-          : currentExpense,
-      ),
-    );
+  const handleToggleStatus = useCallback(async (expense: FixedExpense) => {
+    try {
+      const updatedExpense = await updateFixedExpenseStatus(
+        expense.id,
+        !expense.isActive,
+      );
 
-    setFeedback(
-      expense.isActive
-        ? `"${expense.title}" foi inativado. O histórico foi preservado.`
-        : `"${expense.title}" foi reativado com sucesso.`,
-    );
+      setExpenses((currentExpenses) =>
+        currentExpenses.map((currentExpense) =>
+          currentExpense.id === updatedExpense.id
+            ? updatedExpense
+            : currentExpense,
+        ),
+      );
+
+      setFeedback(
+        updatedExpense.isActive
+          ? `"${expense.title}" foi reativado com sucesso.`
+          : `"${expense.title}" foi inativado. O histórico foi preservado.`,
+      );
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível alterar o status do gasto fixo.",
+      );
+    }
   }, []);
 
   const handleOpenPayment = useCallback((expense: FixedExpense) => {
@@ -273,56 +254,7 @@ function FixedExpenses() {
     setPayingExpense(null);
   }, []);
 
-  /**
-   * Busca a categoria padrão "Gastos Fixos" usada na movimentação.
-   *
-   * A categoria já é criada pelo back-end em `categories.service.ts`. Caso a
-   * listagem esteja desatualizada, tentamos recarregar e, em último caso,
-   * `POST /categories` reaproveita a categoria existente pelo nome.
-   */
-  const resolveFixedExpenseCategory =
-    useCallback(async (): Promise<TransactionCategory> => {
-      const findCategory = (items: TransactionCategory[]) =>
-        items.find(
-          (category) =>
-            normalizeSearchText(category.name) ===
-            normalizeSearchText(FIXED_EXPENSE_CATEGORY),
-        );
-
-      const cachedCategory = findCategory(categories);
-
-      if (cachedCategory) {
-        return cachedCategory;
-      }
-
-      const latestCategories = await fetchCategories();
-      setCategories(latestCategories);
-
-      const fetchedCategory = findCategory(latestCategories);
-
-      if (fetchedCategory) {
-        return fetchedCategory;
-      }
-
-      // TODO [BACKEND]: A categoria padrão deve existir via seed/migração.
-      // O fallback abaixo evita bloquear o pagamento caso a carga inicial
-      // ainda não tenha sido executada.
-      const createdCategory = await createCategory({
-        name: FIXED_EXPENSE_CATEGORY,
-        color: FIXED_EXPENSE_CATEGORY_COLOR,
-      });
-
-      setCategories((currentCategories) =>
-        currentCategories.some(
-          (category) => category.id === createdCategory.id,
-        )
-          ? currentCategories
-          : [...currentCategories, createdCategory],
-      );
-
-      return createdCategory;
-    }, [categories]);
-
+  // Os erros do servidor sobem para a modal de pagamento, que os exibe.
   const handleSubmitPayment = useCallback(
     async (input: FixedExpensePaymentInput) => {
       if (!payingExpense) {
@@ -347,53 +279,24 @@ function FixedExpenses() {
         throw new Error("Este gasto fixo já foi pago no mês atual.");
       }
 
-      const fixedExpenseCategory = await resolveFixedExpenseCategory();
-      const paymentDate = getTodayISO();
-
       /*
-       * Cada pagamento de gasto fixo também é uma despesa real da conta
-       * utilizada. `POST /transactions` salva a movimentação, o comprovante e
-       * atualiza o saldo no servidor dentro da mesma transação.
-       *
-       * TODO [BACKEND]: Unificar as operações no endpoint dedicado
-       * `POST /api/fixed-expenses/:id/payments`, criando na mesma transação
-       * SQL:
-       * 1. o registro em `fixed_expense_payments`;
-       * 2. a movimentação de despesa em `movimentacao`;
-       * 3. o débito em `conta_financeira.saldo_atual`;
-       * 4. o comprovante em BYTEA;
-       * 5. o vínculo `fixed_expense_payments.transaction_id`.
+       * `POST /fixed-expenses/:id/payments` cria a movimentação de despesa
+       * (título do gasto + categoria "Gastos Fixos"), debita a conta e salva
+       * o comprovante na mesma transação do banco de dados.
        */
-      const transaction = await createTransaction(selectedAccount.id, {
-        title: payingExpense.title,
-        description: `Pagamento mensal do gasto fixo "${payingExpense.title}".`,
-        amount: payingExpense.estimatedAmount,
-        type: "expense",
-        categoryId: fixedExpenseCategory.id,
-        date: paymentDate,
-        receiptFile: input.receiptFile ?? undefined,
-      });
-
-      const payment: FixedExpensePayment = {
-        id: createId("fixed-expense-payment"),
-        transactionId: transaction.id,
-        paidAt: transaction.date || paymentDate,
-        amount: transaction.amount,
-        accountId: selectedAccount.id,
-        accountName: selectedAccount.name,
-        receiptName: input.receiptFile?.name ?? null,
-      };
-
-      // O saldo exibido é atualizado de forma otimista para refletir o débito
-      // imediatamente; em seguida `GET /accounts` confirma o valor do servidor.
-      const optimisticBalance = roundCurrency(
-        selectedAccount.balance - payment.amount,
+      const { payment, accountBalance } = await registerFixedExpensePayment(
+        payingExpense.id,
+        {
+          accountId: selectedAccount.id,
+          receiptFile: input.receiptFile,
+          date: getTodayISO(),
+        },
       );
 
       setAccounts((currentAccounts) =>
         currentAccounts.map((account) =>
           account.id === selectedAccount.id
-            ? { ...account, balance: optimisticBalance }
+            ? { ...account, balance: accountBalance }
             : account,
         ),
       );
@@ -406,14 +309,14 @@ function FixedExpenses() {
       setExpenses((currentExpenses) =>
         currentExpenses.map((expense) =>
           expense.id === payingExpense.id
-            ? { ...expense, payments: [...expense.payments, payment] }
+            ? { ...expense, payments: [payment, ...expense.payments] }
             : expense,
         ),
       );
 
       setPayingExpense(null);
 
-      let updatedBalance = optimisticBalance;
+      let updatedBalance = accountBalance;
 
       try {
         const refreshedAccounts = await fetchAccounts();
@@ -427,8 +330,8 @@ function FixedExpenses() {
           updatedBalance = refreshedAccount.balance;
         }
       } catch (error) {
-        // A movimentação já foi criada e debitada no servidor. Mantemos o
-        // valor otimista até a próxima atualização da lista de contas.
+        // O pagamento já foi registrado e debitado no servidor; mantemos o
+        // saldo devolvido por ele até a próxima atualização das contas.
         console.error(
           "Pagamento registrado, mas não foi possível recarregar o saldo:",
           error,
@@ -439,7 +342,7 @@ function FixedExpenses() {
         `Pagamento de ${formatCurrency(payment.amount)} registrado em Movimentações e debitado da conta ${selectedAccount.name}. Saldo atual: ${formatCurrency(updatedBalance)}.`,
       );
     },
-    [accounts, payingExpense, resolveFixedExpenseCategory],
+    [accounts, payingExpense],
   );
 
   const handleOpenHistory = useCallback((expense: FixedExpense) => {
@@ -458,19 +361,31 @@ function FixedExpenses() {
     setDeletingExpense(null);
   }, []);
 
-  const handleConfirmDelete = useCallback(() => {
+  const handleConfirmDelete = useCallback(async () => {
     if (!deletingExpense) {
       return;
     }
 
-    // TODO [BACKEND]: Chamar DELETE /api/fixed-expenses/:id.
-    // Os pagamentos devem ser removidos em cascata no banco de dados.
-    setExpenses((currentExpenses) =>
-      currentExpenses.filter((expense) => expense.id !== deletingExpense.id),
-    );
+    const expenseToDelete = deletingExpense;
 
-    setFeedback(`Gasto fixo "${deletingExpense.title}" excluído.`);
-    setDeletingExpense(null);
+    try {
+      // Remove só o gasto fixo; as movimentações já pagas são preservadas.
+      await deleteFixedExpense(expenseToDelete.id);
+
+      setExpenses((currentExpenses) =>
+        currentExpenses.filter((expense) => expense.id !== expenseToDelete.id),
+      );
+
+      setFeedback(`Gasto fixo "${expenseToDelete.title}" excluído.`);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir o gasto fixo.",
+      );
+    } finally {
+      setDeletingExpense(null);
+    }
   }, [deletingExpense]);
 
   const handleCloseAccountModal = useCallback(() => {
@@ -546,7 +461,7 @@ function FixedExpenses() {
             </p>
           </div>
 
-          {!isLoadingAccounts && !accountsError && activeAccount && (
+          {!isLoading && !loadError && activeAccount && (
             <button
               type="button"
               onClick={handleOpenCreateExpense}
@@ -582,14 +497,38 @@ function FixedExpenses() {
           </div>
         )}
 
-        {isLoadingAccounts && (
+        {actionError && (
+          <div
+            role="alert"
+            className="mt-6 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3.5"
+          >
+            <AlertCircle
+              size={18}
+              aria-hidden="true"
+              className="mt-0.5 shrink-0 text-rose-600"
+            />
+            <p className="flex-1 text-sm font-medium text-rose-800">
+              {actionError}
+            </p>
+            <button
+              type="button"
+              onClick={() => setActionError("")}
+              aria-label="Fechar mensagem de erro"
+              className="rounded-full p-1 text-rose-600 transition hover:bg-rose-100"
+            >
+              <X size={15} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        {isLoading && (
           <div className="mt-6 space-y-4" aria-label="Carregando gastos fixos">
             <div className="h-[118px] animate-pulse rounded-2xl border border-slate-200 bg-white" />
             <div className="h-72 animate-pulse rounded-2xl border border-slate-200 bg-white" />
           </div>
         )}
 
-        {!isLoadingAccounts && accountsError && (
+        {!isLoading && loadError && (
           <div
             role="alert"
             className="mt-6 flex flex-col items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-5 sm:flex-row sm:items-center sm:justify-between"
@@ -602,7 +541,7 @@ function FixedExpenses() {
               />
               <div>
                 <p className="text-sm font-semibold text-rose-800">
-                  {accountsError}
+                  {loadError}
                 </p>
                 <p className="mt-0.5 text-xs text-rose-600">
                   Verifique sua conexão e tente novamente.
@@ -620,7 +559,7 @@ function FixedExpenses() {
           </div>
         )}
 
-        {!isLoadingAccounts && !accountsError && !hasAccounts && (
+        {!isLoading && !loadError && !hasAccounts && (
           <div className="mt-8">
             <TransactionsEmptyState
               icon={Wallet}
@@ -633,7 +572,7 @@ function FixedExpenses() {
           </div>
         )}
 
-        {!isLoadingAccounts && !accountsError && hasAccounts && (
+        {!isLoading && !loadError && hasAccounts && (
           <div className="mt-6 flex flex-col gap-4">
             <FixedExpensesAccountBalances
               accounts={accounts}

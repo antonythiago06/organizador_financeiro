@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import {
   CalendarDays,
@@ -11,13 +11,14 @@ import {
 
 import { formatCurrency } from "../../lib/currency";
 import {
-  filterPaymentsByDate,
   formatFixedExpenseDate,
   sortPaymentsByDate,
 } from "../../lib/fixedExpenses";
+import { fetchFixedExpensePayments } from "../../lib/fixedExpensesApi";
 import type {
   FixedExpense,
   FixedExpenseHistoryFilters,
+  FixedExpensePayment,
 } from "../../types/fixedExpense";
 import ModalShell from "../modals/ModalShell";
 import TransactionsEmptyState from "../transactions/TransactionsEmptyState";
@@ -55,12 +56,60 @@ function FixedExpenseHistoryModalContent({
     useState<FixedExpenseHistoryFilters>(EMPTY_FILTERS);
   const [filterError, setFilterError] = useState("");
 
+  /**
+   * O histórico vem de `GET /fixed-expenses/:id/payments`, com o filtro de
+   * datas aplicado no banco. O resultado guarda a chave da consulta que o
+   * gerou: enquanto ela não bate com a atual, a lista está carregando.
+   */
+  const [result, setResult] = useState<{
+    key: string;
+    payments: FixedExpensePayment[];
+    error: string;
+  } | null>(null);
+
+  const expenseId = expense?.id;
+  const requestKey = `${expenseId}|${appliedFilters.startDate}|${appliedFilters.endDate}`;
+
+  useEffect(() => {
+    if (!expenseId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    fetchFixedExpensePayments(expenseId, appliedFilters)
+      .then((payments) => {
+        if (isMounted) {
+          setResult({ key: requestKey, payments, error: "" });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Erro ao carregar o histórico de pagamentos:", error);
+
+        if (isMounted) {
+          setResult({
+            key: requestKey,
+            payments: [],
+            error:
+              error instanceof Error
+                ? error.message
+                : "Não foi possível carregar o histórico de pagamentos.",
+          });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [expenseId, appliedFilters, requestKey]);
+
+  const loadedResult = result?.key === requestKey ? result : null;
+  const isLoadingPayments = loadedResult === null;
+  const loadError = loadedResult?.error ?? "";
+
   const filteredPayments = useMemo(
-    () =>
-      sortPaymentsByDate(
-        filterPaymentsByDate(expense?.payments ?? [], appliedFilters),
-      ),
-    [appliedFilters, expense?.payments],
+    () => sortPaymentsByDate(loadedResult?.payments ?? []),
+    [loadedResult],
   );
 
   const hasActiveFilters = Boolean(
@@ -88,9 +137,6 @@ function FixedExpenseHistoryModalContent({
 
     setFilterError("");
 
-    // TODO [BACKEND]: Implementar filtros de data no banco de dados. Enviar
-    // `startDate` e `endDate` em GET /api/fixed-expenses/:id/payments para que
-    // a paginação e a soma do histórico sejam calculadas no servidor.
     setAppliedFilters({ ...draftFilters });
   }
 
@@ -246,7 +292,21 @@ function FixedExpenseHistoryModalContent({
           </div>
         </header>
 
-        {filteredPayments.length === 0 ? (
+        {isLoadingPayments ? (
+          <p
+            role="status"
+            className="px-4 py-10 text-center text-sm text-slate-500"
+          >
+            Carregando pagamentos...
+          </p>
+        ) : loadError ? (
+          <p
+            role="alert"
+            className="px-4 py-10 text-center text-sm font-medium text-rose-600"
+          >
+            {loadError}
+          </p>
+        ) : filteredPayments.length === 0 ? (
           <TransactionsEmptyState
             compact
             icon={hasActiveFilters ? SearchX : History}
@@ -353,8 +413,8 @@ function FixedExpenseHistoryModalContent({
       </section>
 
       <p className="mt-4 text-[11px] leading-relaxed text-slate-400">
-        O histórico é preservado mesmo quando o gasto é inativado. A exclusão
-        permanente do gasto também remove os pagamentos associados.
+        O histórico é preservado mesmo quando o gasto é inativado. Ao excluir o
+        gasto fixo, os pagamentos já registrados continuam em Movimentações.
       </p>
     </ModalShell>
   );

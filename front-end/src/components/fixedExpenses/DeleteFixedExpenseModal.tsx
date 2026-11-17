@@ -40,8 +40,9 @@ function DeleteFixedExpenseModal({
               Remover permanentemente "{expense.title}"?
             </p>
             <p className="mt-1 text-sm leading-relaxed text-rose-700">
-              Todos os dados do gasto fixo e o histórico de pagamentos
-              registrados serão removidos. Não será possível recuperá-los.
+              O cadastro do gasto fixo será removido e não poderá ser
+              recuperado. Os pagamentos já registrados continuam em
+              Movimentações.
             </p>
           </div>
         </div>

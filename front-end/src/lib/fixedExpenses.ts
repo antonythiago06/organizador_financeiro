@@ -5,24 +5,14 @@ import type {
 } from "../types/fixedExpense";
 
 /**
- * Categoria única usada ao registrar o pagamento de um gasto fixo.
- *
- * TODO [BACKEND]: Reaproveitar a categoria "Gastos Fixos" já criada no módulo
- * de categorias ao persistir o pagamento, em vez de enviar este texto livre.
+ * Categoria única usada ao registrar o pagamento de um gasto fixo. O
+ * back-end reaproveita a categoria padrão "Gastos Fixos" ao criar a
+ * movimentação do pagamento.
  */
 export const FIXED_EXPENSE_CATEGORY = "Gastos Fixos";
 
 /** Cor usada caso a categoria padrão precise ser criada pelo front-end. */
 export const FIXED_EXPENSE_CATEGORY_COLOR = "#030862";
-
-/**
- * Chave usada para manter os gastos fixos no navegador durante o
- * desenvolvimento do front-end.
- *
- * TODO [BACKEND]: Remover a persistência local assim que `GET /api/fixed-expenses`
- * estiver disponível. Os dados devem ser sempre carregados da API autenticada.
- */
-const FIXED_EXPENSES_STORAGE_KEY = "organizae:fixed-expenses";
 
 /** Quantidade de dias disponível no select de vencimento. */
 export const DUE_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
@@ -86,12 +76,11 @@ export function sortPaymentsByDate(
 }
 
 /**
- * Aplica o filtro de período ao histórico de pagamentos.
+ * Aplica o filtro de período a uma lista de pagamentos em memória.
  *
- * TODO [BACKEND]: Implementar filtros de data no banco de dados. A consulta
- * deve receber `startDate` e `endDate` e retornar somente os pagamentos do
- * gasto fixo selecionado:
- * `GET /api/fixed-expenses/:id/payments?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`.
+ * O histórico da tela usa o filtro do servidor
+ * (`GET /fixed-expenses/:id/payments?startDate=&endDate=`); esta função é
+ * apenas um utilitário local.
  */
 export function filterPaymentsByDate(
   payments: FixedExpensePayment[],
@@ -108,126 +97,6 @@ export function filterPaymentsByDate(
 
     return true;
   });
-}
-
-function normalizePayment(value: unknown): FixedExpensePayment | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const payment = value as Partial<FixedExpensePayment>;
-
-  if (typeof payment.id !== "string" || typeof payment.paidAt !== "string") {
-    return null;
-  }
-
-  const amount = Number(payment.amount);
-
-  return {
-    id: payment.id,
-    // Pagamentos antigos, anteriores à integração com movimentações, não
-    // possuem vínculo com a tabela `movimentacao`.
-    transactionId:
-      typeof payment.transactionId === "string"
-        ? payment.transactionId
-        : null,
-    paidAt: payment.paidAt,
-    amount: Number.isFinite(amount) ? amount : 0,
-    accountId: String(payment.accountId ?? ""),
-    accountName:
-      typeof payment.accountName === "string"
-        ? payment.accountName
-        : "Conta removida",
-    receiptName:
-      typeof payment.receiptName === "string" ? payment.receiptName : null,
-  };
-}
-
-function normalizeExpense(value: unknown): FixedExpense | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const expense = value as Partial<FixedExpense>;
-
-  if (typeof expense.id !== "string" || typeof expense.title !== "string") {
-    return null;
-  }
-
-  const estimatedAmount = Number(expense.estimatedAmount);
-  const dueDay = Number(expense.dueDay);
-  const payments = Array.isArray(expense.payments)
-    ? expense.payments
-        .map(normalizePayment)
-        .filter((payment): payment is FixedExpensePayment => payment !== null)
-    : [];
-
-  return {
-    id: expense.id,
-    title: expense.title,
-    estimatedAmount: Number.isFinite(estimatedAmount) ? estimatedAmount : 0,
-    dueDay:
-      Number.isInteger(dueDay) && dueDay >= 1 && dueDay <= 31 ? dueDay : 1,
-    isActive: expense.isActive !== false,
-    category:
-      typeof expense.category === "string" && expense.category.trim()
-        ? expense.category
-        : FIXED_EXPENSE_CATEGORY,
-    createdAt:
-      typeof expense.createdAt === "string"
-        ? expense.createdAt
-        : new Date().toISOString(),
-    payments,
-  };
-}
-
-/**
- * Carrega os gastos fixos persistidos localmente.
- *
- * A lista começa vazia para todo usuário novo — nenhum gasto de exemplo é
- * criado. Dados inválidos são ignorados em vez de quebrar a página.
- */
-export function loadFixedExpenses(): FixedExpense[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const rawValue = window.localStorage.getItem(FIXED_EXPENSES_STORAGE_KEY);
-
-    if (!rawValue) {
-      return [];
-    }
-
-    const parsedValue: unknown = JSON.parse(rawValue);
-
-    if (!Array.isArray(parsedValue)) {
-      return [];
-    }
-
-    return parsedValue
-      .map(normalizeExpense)
-      .filter((expense): expense is FixedExpense => expense !== null);
-  } catch (error) {
-    console.warn("Não foi possível carregar os gastos fixos locais:", error);
-    return [];
-  }
-}
-
-/** Salva os gastos fixos no navegador enquanto a API não está disponível. */
-export function saveFixedExpenses(expenses: FixedExpense[]): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(
-      FIXED_EXPENSES_STORAGE_KEY,
-      JSON.stringify(expenses),
-    );
-  } catch (error) {
-    console.warn("Não foi possível salvar os gastos fixos locais:", error);
-  }
 }
 
 export { formatTransactionDate as formatFixedExpenseDate } from "./transactions";

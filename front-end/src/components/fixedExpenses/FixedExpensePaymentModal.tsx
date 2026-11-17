@@ -200,11 +200,9 @@ function FixedExpensePaymentModalContent({
     setErrors({});
 
     try {
-      // A página cria a movimentação de despesa em `POST /transactions` e
-      // atualiza o saldo da conta antes de fechar esta modal.
-      // TODO [BACKEND]: Consolidar em POST /api/fixed-expenses/:id/payments,
-      // que deve criar pagamento + movimentação + débito do saldo + upload do
-      // comprovante em uma única transação SQL (multipart/form-data).
+      // A página chama `POST /fixed-expenses/:id/payments`, que cria a
+      // movimentação, debita a conta e salva o comprovante numa única
+      // transação, e só então fecha esta modal.
       await onSubmit({
         accountId: selectedAccountId,
         receiptFile,

@@ -7,8 +7,8 @@ export class MailService {
    constructor() {
     this.transporter = nodemailer.createTransport({
       host: process.env.MAIL_HOST ||'localhost',
-      port: Number(process.env.MAIL_PORT) || 587 || 1025,
-      secure: false, // true para 465, false para 587
+      port: Number(process.env.MAIL_PORT)|| 1025,
+      secure: false,
       auth: {
         user:  process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
@@ -71,13 +71,10 @@ console.log('--> PASSO 1: A função sendPasswordResetCode foi chamada para:', e
         </div>
       `,
     });
-  console.log('--> PASSO 3: E-mail enviado com sucesso para a caixa de entrada!');
+ console.log('--> PASSO 3: E-mail enviado com sucesso para o Mailpit!');
     } catch (error: any) {
-      console.warn('⚠️ [AVISO] A rede bloqueou o envio SMTP real (Timeout).');
-      console.warn('💡 MODO DE DESENVOLVIMENTO ATIVADO: Use o código abaixo para testar:');
-      console.log(`\n========================================`);
-      console.log(`🔑 CÓDIGO DE RECUPERAÇÃO PARA ${email}: [ ${code} ]`);
-      console.log(`========================================\n`);
+      console.error('⚠️ [ERRO] Falha ao enviar e-mail para o Mailpit:', error.message);
+      console.warn('💡 Dica: Certifica-te de que o contentor do Mailpit está a correr no Docker.');
   }
 }
 }

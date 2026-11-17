@@ -60,7 +60,7 @@ Para parar os containers mantendo os dados salvos:
 docker compose down
 ```
 
-###(Opcional) No caso de apagar tudo, incluindo os volumes de dados do banco para reiniciar o ambiente do zero:
+### (Opcional) No caso de apagar tudo, incluindo os volumes de dados do banco para reiniciar o ambiente do zero:
 
 ```powershell
 docker compose down -v

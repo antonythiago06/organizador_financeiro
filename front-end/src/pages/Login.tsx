@@ -14,24 +14,6 @@ function Login() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const normalizedEmail = email.trim().toLowerCase();
-
-    /*
-     * TODO [BACKEND]: Acesso administrativo provisório com usuário "admin" e
-     * senha "admin" (ou e-mail admin@organizae.com). Remover este atalho
-     * quando o login devolver a role/claim ADMIN no JWT.
-     */
-    const isProvisionalAdmin =
-      (normalizedEmail === "admin" ||
-        normalizedEmail === "admin@organizae.com") &&
-      password === "admin";
-
-    if (isProvisionalAdmin) {
-      localStorage.setItem("admin_access", "true");
-      window.location.href = "/admin";
-      return;
-    }
-
     try {
       const response = await fetch("http://localhost:3000/auth/login", {
         method: "POST",
@@ -53,6 +35,13 @@ function Login() {
 
       localStorage.removeItem("admin_access");
       localStorage.setItem("access_token", data.access_token);
+
+      // O back-end devolve a role no login: admin vai para o painel
+      // administrativo; usuário comum segue para o dashboard financeiro.
+      if (data.user?.role === "ADMIN") {
+        window.location.href = "/admin";
+        return;
+      }
 
       alert("Login realizado com sucesso!");
 

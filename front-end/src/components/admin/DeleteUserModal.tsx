@@ -13,12 +13,9 @@ type DeleteUserModalProps = {
 };
 
 /**
- * TODO [BACKEND]: Conectar endpoint DELETE /api/admin/users/:id para persistir a exclusão da conta do usuário no banco de dados e atualizar a listagem em tempo real.
- *
- * O fluxo visual já está preparado: a página controla `isDeleting`/`error`, e
- * a confirmação deve chamar o endpoint acima antes de remover a linha da
- * tabela. Enquanto o endpoint não existe, a exclusão é simulada apenas no
- * estado local para validação do layout.
+ * Confirmação de exclusão. A página controla `isDeleting`/`error` e chama
+ * DELETE /api/admin/users/:id, que remove em cascata tudo que pertence ao
+ * usuário (contas financeiras, movimentações, gastos fixos e categorias).
  */
 function DeleteUserModal({
   isOpen,
@@ -50,8 +47,9 @@ function DeleteUserModal({
           </span>
 
           <p className="text-sm leading-relaxed text-rose-800">
-            O usuário perderá o acesso ao Organizaê e os dados vinculados a esta
-            conta poderão ser removidos permanentemente.
+            O usuário perderá o acesso ao Organizaê e todos os dados vinculados
+            a esta conta (contas financeiras, movimentações e gastos fixos)
+            serão removidos permanentemente.
           </p>
         </div>
 

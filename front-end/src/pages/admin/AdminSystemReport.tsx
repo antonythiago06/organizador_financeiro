@@ -57,25 +57,13 @@ const INITIAL_METRICS: AdminMetrics = {
   fixedExpenses: 0,
 };
 
-/**
- * Alterna entre os indicadores zerados e a API real.
- *
- * TODO [BACKEND]: Alterar para `false` (ou remover a flag) quando o endpoint
- * GET /api/admin/metrics estiver disponível no ambiente de desenvolvimento.
- */
-const USE_MOCK_METRICS = true;
-
 function AdminSystemReport() {
   const [metrics, setMetrics] = useState<AdminMetrics>({ ...INITIAL_METRICS });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    if (USE_MOCK_METRICS) {
-      return;
-    }
-
     let isMounted = true;
 
     async function loadMetrics() {
@@ -83,7 +71,6 @@ function AdminSystemReport() {
       setLoadError("");
 
       try {
-        // TODO [BACKEND]: Conectar endpoint GET /api/admin/metrics para alimentar os indicadores do relatório do sistema com contagens reais do banco de dados.
         const result = await fetchAdminMetrics();
 
         if (isMounted) {

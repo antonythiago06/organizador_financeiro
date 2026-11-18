@@ -41,7 +41,7 @@ export class AuthController {
   async googleCallback(@Req() req: any, @Res() res: Response) {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') ||
-      'http://localhost:5173';
+      'https://organizadorfinanceiro-woad.vercel.app';
 
     const token = await this.authService.validateGoogleUser(req.user);
 

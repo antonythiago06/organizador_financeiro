@@ -9,65 +9,11 @@ import type { AdminUser } from "../../types/admin";
 
 const PAGE_SIZE = 6;
 
-/**
- * Dados temporários apenas para visualização do layout durante o
- * desenvolvimento do front-end. Eles não representam pessoas reais.
- *
- * TODO [BACKEND]: Remover dados de exemplo/mockados do estado inicial. Conectar endpoint GET /api/admin/users para preencher a tabela dinamicamente com dados do banco de dados.
- */
-const MOCK_ADMIN_USERS: AdminUser[] = [
-  {
-    id: "mock-user-1",
-    name: "Ana Beatriz Souza",
-    email: "ana.souza@exemplo.com",
-    createdAt: "2026-01-12T12:00:00.000Z",
-  },
-  {
-    id: "mock-user-2",
-    name: "Bruno Carvalho Lima",
-    email: "bruno.lima@exemplo.com",
-    createdAt: "2026-02-03T12:00:00.000Z",
-  },
-  {
-    id: "mock-user-3",
-    name: "Camila Ferreira Alves",
-    email: "camila.alves@exemplo.com",
-    createdAt: "2026-02-21T12:00:00.000Z",
-  },
-  {
-    id: "mock-user-4",
-    name: "Diego Martins Rocha",
-    email: "diego.rocha@exemplo.com",
-    createdAt: "2026-03-08T12:00:00.000Z",
-  },
-  {
-    id: "mock-user-5",
-    name: "Elisa Nogueira Prado",
-    email: "elisa.prado@exemplo.com",
-    createdAt: "2026-03-27T12:00:00.000Z",
-  },
-  {
-    id: "mock-user-6",
-    name: "Felipe Andrade Costa",
-    email: "felipe.costa@exemplo.com",
-    createdAt: "2026-04-15T12:00:00.000Z",
-  },
-];
-
-/**
- * Alterna entre os dados de demonstração e a API real.
- *
- * TODO [BACKEND]: Alterar para `false` (ou remover a flag) quando o endpoint
- * GET /api/admin/users estiver disponível no ambiente de desenvolvimento.
- */
-const USE_MOCK_USERS = true;
-
 function AdminUsers() {
-  const [mockUsers, setMockUsers] = useState<AdminUser[]>(MOCK_ADMIN_USERS);
   const [remoteUsers, setRemoteUsers] = useState<AdminUser[]>([]);
   const [remoteTotal, setRemoteTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(!USE_MOCK_USERS);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -76,21 +22,12 @@ function AdminUsers() {
   const [deleteError, setDeleteError] = useState("");
   const [feedback, setFeedback] = useState("");
 
-  const totalUsers = USE_MOCK_USERS ? mockUsers.length : remoteTotal;
+  const totalUsers = remoteTotal;
   const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
   const visiblePage = Math.min(currentPage, totalPages);
-  const users = USE_MOCK_USERS
-    ? mockUsers.slice(
-        (visiblePage - 1) * PAGE_SIZE,
-        visiblePage * PAGE_SIZE,
-      )
-    : remoteUsers;
+  const users = remoteUsers;
 
   useEffect(() => {
-    if (USE_MOCK_USERS) {
-      return;
-    }
-
     let isMounted = true;
 
     async function loadUsers() {
@@ -98,8 +35,6 @@ function AdminUsers() {
       setLoadError("");
 
       try {
-        // TODO [BACKEND]: Conectar endpoint GET /api/admin/users para
-        // preencher a tabela dinamicamente com dados do banco de dados.
         const result = await fetchAdminUsers({
           page: visiblePage,
           limit: PAGE_SIZE,
@@ -174,17 +109,8 @@ function AdminUsers() {
     setDeleteError("");
 
     try {
-      if (USE_MOCK_USERS) {
-        // Simula a exclusão local apenas para validar o fluxo visual.
-        setMockUsers((currentUsers) =>
-          currentUsers.filter((user) => user.id !== userToDelete.id),
-        );
-        setCurrentPage(1);
-      } else {
-        // TODO [BACKEND]: Conectar endpoint DELETE /api/admin/users/:id para persistir a exclusão da conta do usuário no banco de dados e atualizar a listagem em tempo real.
-        await deleteAdminUser(userToDelete.id);
-        setReloadKey((currentKey) => currentKey + 1);
-      }
+      await deleteAdminUser(userToDelete.id);
+      setReloadKey((currentKey) => currentKey + 1);
 
       setFeedback(`Conta de ${userToDelete.name} excluída com sucesso.`);
       setDeletingUser(null);

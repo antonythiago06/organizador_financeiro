@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
@@ -13,23 +13,69 @@ import Transactions from "./pages/Transactions";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminSystemReport from "./pages/admin/AdminSystemReport";
 import AdminUsers from "./pages/admin/AdminUsers";
+import { API_URL } from "./lib/api";
+
+type AdminAccessStatus = "checking" | "admin" | "user" | "anonymous";
 
 /**
- * Guarda provisória das rotas administrativas.
+ * Guarda das rotas administrativas.
  *
- * TODO [BACKEND]: Atualmente a rota /admin é acessada provisoriamente pelas credenciais de teste (usuario admin / senha admin). Substituir por middleware de autorização baseado em roles/claims JWT (ex: role === 'ADMIN').
- *
- * Enquanto o JWT não expõe a role, a flag `admin_access` é gravada pelo login
- * provisório e removida ao sair do painel. O `user_role` já é consultado para
- * facilitar a transição assim que o back-end passar a enviar a claim.
+ * A role é confirmada no back-end (GET /auth/me) a cada acesso: nada que esteja
+ * no localStorage libera o painel. Mesmo que alguém burle esta guarda, o
+ * back-end ainda bloqueia /api/admin/* com 403 para quem não é ADMIN.
  */
 function AdminAccessGuard({ children }: { children: ReactNode }) {
-  const storedRole = localStorage.getItem("user_role");
-  const hasAdminRole = storedRole?.toUpperCase() === "ADMIN";
-  const hasProvisionalAccess = localStorage.getItem("admin_access") === "true";
+  const [status, setStatus] = useState<AdminAccessStatus>("checking");
 
-  if (!hasAdminRole && !hasProvisionalAccess) {
+  useEffect(() => {
+    let isMounted = true;
+
+    async function verifyAccess() {
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        if (isMounted) setStatus("anonymous");
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          localStorage.removeItem("access_token");
+          if (isMounted) setStatus("anonymous");
+          return;
+        }
+
+        const user = await response.json();
+
+        if (isMounted) {
+          setStatus(user?.role === "ADMIN" ? "admin" : "user");
+        }
+      } catch {
+        if (isMounted) setStatus("anonymous");
+      }
+    }
+
+    verifyAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (status === "checking") {
+    return null;
+  }
+
+  if (status === "anonymous") {
     return <Navigate to="/login" replace />;
+  }
+
+  if (status === "user") {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

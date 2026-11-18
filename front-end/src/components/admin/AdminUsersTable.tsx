@@ -136,7 +136,7 @@ function AdminUsersTable({
           compact
           icon={Users}
           title="Nenhum usuário cadastrado"
-          description="As contas dos usuários aparecerão aqui assim que a integração com o banco de dados estiver disponível."
+          description="As contas dos usuários aparecerão aqui assim que alguém se cadastrar no Organizaê."
         />
       ) : (
         <>

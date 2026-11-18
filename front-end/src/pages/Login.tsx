@@ -6,6 +6,7 @@ import AuthLayout from "../components/auth/AuthLayout";
 import Button from "../components/auth/Button";
 import GoogleIcon from "../components/auth/GoogleIcon";
 import Input from "../components/auth/Input";
+import { API_URL } from '../services/api';
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -15,7 +16,7 @@ function Login() {
     event.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

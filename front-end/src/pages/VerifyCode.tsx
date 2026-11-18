@@ -7,6 +7,7 @@ import {
 } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom"; // 1. Importado o useLocation
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { API_URL } from '../services/api';
 
 import AuthLayout from "../components/auth/AuthLayout";
 import Button from "../components/auth/Button";
@@ -124,7 +125,7 @@ function VerifyCode() {
     focusInput(0);
 
     try {
-      const response = await fetch("http://localhost:3000/auth/forgot-password", {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -151,7 +152,7 @@ function VerifyCode() {
     const fullCode = code.join("");
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/verify-code", {
+      const response = await fetch(`${API_URL}/api/auth/verify-code`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

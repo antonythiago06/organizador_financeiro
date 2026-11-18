@@ -20,9 +20,10 @@ import DashboardCard from "../components/dashboard/DashboardCard";
 import EmptyStateCard from "../components/dashboard/EmptyStateCard";
 import SummaryCard from "../components/dashboard/SummaryCard";
 import AccountModal from "../components/modals/AccountModal";
+import { API_URL } from '../services/api';
 import type { Account, NewAccountInput } from "../types/account";
 
-const API_URL = "http://localhost:3000/api";
+
 
 const NAV_ITEMS: DashboardNavItem[] = [
   { key: "overview", label: "visão geral" },

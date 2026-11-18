@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Lock } from "lucide-react";
+import { API_URL } from '../services/api';
 
 import AuthLayout from "../components/auth/AuthLayout";
 import Button from "../components/auth/Button";
@@ -25,7 +26,7 @@ function ResetPassword() {
     }
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/reset-password", {
+      const response = await fetch(`${API_URL}/api/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code, novaSenha: senha }),

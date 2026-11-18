@@ -2,11 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
-import { AccountsModule } from './accounts/accounts.module';
-import { CategoriesModule } from './categories/categories.module';
-import { TransactionsModule } from './transactions/transactions.module';
-import { FixedExpensesModule } from './fixed-expenses/fixed-expenses.module';
-import { AdminModule } from './admin/admin.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -24,11 +20,7 @@ import { AdminModule } from './admin/admin.module';
     synchronize: true,
     }),
     AuthModule,
-    AccountsModule,
-    CategoriesModule,
-    TransactionsModule,
-    FixedExpensesModule,
-    AdminModule,
+    MailModule,
   ],
 })
 export class AppModule {}

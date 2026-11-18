@@ -1,6 +1,7 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type ChangeEvent} from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Lock } from "lucide-react";
+import { API_URL } from '../services/api';
 
 import AuthLayout from "../components/auth/AuthLayout";
 import Button from "../components/auth/Button";
@@ -14,7 +15,7 @@ function ForgotPassword() {
     event.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/forgot-password", {
+      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

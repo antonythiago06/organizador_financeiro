@@ -19,6 +19,18 @@ type AdminUsersTableProps = {
   onPageChange: (page: number) => void;
 };
 
+/**
+ * Tabela de usuários do painel administrativo.
+ *
+ * A paginação é controlada por `AdminUsers`, que envia `page`/`limit` para
+ * GET /api/admin/users. Este componente apenas renderiza a página atual e
+ * delega a confirmação de exclusão para a modal.
+ *
+ * TODO [BACKEND]: Manter o contrato de paginação (`items`, `total`, `page`,
+ * `totalPages`) estável para que a tabela continue funcionando sem
+ * normalizações adicionais em `lib/adminApi.ts`.
+ */
+
 /** Formata a data de cadastro aceitando ISO completo ou `YYYY-MM-DD`. */
 function formatRegistrationDate(value: string): string {
   if (!value) {

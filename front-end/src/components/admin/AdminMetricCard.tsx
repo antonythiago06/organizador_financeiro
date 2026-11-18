@@ -10,6 +10,14 @@ type AdminMetricCardProps = {
   isLoading?: boolean;
 };
 
+/**
+ * Card de indicador do relatório do sistema.
+ *
+ * TODO [BACKEND]: Os valores são abastecidos por GET /api/admin/metrics. A
+ * contagem de usuários deve considerar a mesma base exibida em
+ * GET /api/admin/users para evitar divergência entre as duas telas.
+ */
+
 const toneClasses: Record<AdminMetricTone, string> = {
   brand: "bg-indigo-50 text-[#4F26E9]",
   blue: "bg-sky-50 text-sky-600",

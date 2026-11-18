@@ -14,6 +14,10 @@ const ADMIN_TABS = [
  *
  * O cabeçalho escuro mantém a identidade visual do Organizaê e as abas
  * internas alternam entre a listagem de usuários e o relatório do sistema.
+ *
+ * TODO [BACKEND]: A guarda real de acesso está em `AdminAccessGuard`
+ * (App.tsx). Este componente não deve ser usado como barreira de segurança;
+ * o back-end precisa validar a role ADMIN em todas as chamadas /api/admin/*.
  */
 function AdminLayout() {
   const navigate = useNavigate();

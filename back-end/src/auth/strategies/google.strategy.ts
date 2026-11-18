@@ -19,9 +19,19 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     refreshToken: string,
     profile: Profile,
   ) {
+    const rawEmail = profile.emails?.[0] as
+      | { value: string; verified?: boolean | string }
+      | undefined;
+    const rawJson = (profile as unknown as {
+      _json?: { email_verified?: boolean | string };
+    })._json;
+
+    const verified = rawEmail?.verified ?? rawJson?.email_verified;
+
     return {
       googleId: profile.id,
       email: profile.emails?.[0]?.value,
+      emailVerified: verified === true || verified === 'true',
       name:
         profile.displayName ||
         `${profile.name?.givenName || ''} ${profile.name?.familyName || ''}`.trim(),

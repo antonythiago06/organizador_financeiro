@@ -9,12 +9,39 @@ const ADMIN_TABS = [
   { label: "relatório do sistema", to: "/admin/relatorio", end: false },
 ];
 
-function getTabClasses(isActive: boolean): string {
-  return `flex h-12 shrink-0 items-center border-b-2 px-3 text-sm font-medium whitespace-nowrap transition md:h-16 ${
-    isActive
-      ? "border-[#635BFF] text-white"
-      : "border-transparent text-indigo-100/70 hover:border-white/20 hover:text-white"
-  }`;
+type AdminTab = (typeof ADMIN_TABS)[number];
+
+/**
+ * Aba de navegação administrativa.
+ *
+ * O indicador roxo fica posicionado logo abaixo do texto (e não no rodapé do
+ * header), mantendo o mesmo padrão visual das demais navegações do Organizaê.
+ */
+function AdminTabLink({ tab }: { tab: AdminTab }) {
+  return (
+    <NavLink
+      to={tab.to}
+      end={tab.end}
+      className={({ isActive }) =>
+        `flex h-12 shrink-0 items-center px-3 text-sm font-medium whitespace-nowrap transition md:h-16 ${
+          isActive ? "text-white" : "text-indigo-100/70 hover:text-white"
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <span className="relative inline-flex items-center py-1.5">
+          {tab.label}
+
+          <span
+            aria-hidden="true"
+            className={`absolute inset-x-0 -bottom-0.5 h-0.5 rounded-full transition ${
+              isActive ? "bg-[#635BFF]" : "bg-transparent"
+            }`}
+          />
+        </span>
+      )}
+    </NavLink>
+  );
 }
 
 /**
@@ -67,14 +94,7 @@ function AdminLayout() {
               className="hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex"
             >
               {ADMIN_TABS.map((tab) => (
-                <NavLink
-                  key={tab.to}
-                  to={tab.to}
-                  end={tab.end}
-                  className={({ isActive }) => getTabClasses(isActive)}
-                >
-                  {tab.label}
-                </NavLink>
+                <AdminTabLink key={tab.to} tab={tab} />
               ))}
             </nav>
 
@@ -95,14 +115,7 @@ function AdminLayout() {
             className="flex items-center overflow-x-auto border-t border-white/10 md:hidden"
           >
             {ADMIN_TABS.map((tab) => (
-              <NavLink
-                key={tab.to}
-                to={tab.to}
-                end={tab.end}
-                className={({ isActive }) => getTabClasses(isActive)}
-              >
-                {tab.label}
-              </NavLink>
+              <AdminTabLink key={tab.to} tab={tab} />
             ))}
           </nav>
         </div>

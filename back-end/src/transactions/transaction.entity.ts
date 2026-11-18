@@ -18,8 +18,8 @@ export class Movimentacao {
   @Column({ type: 'varchar', length: 255, nullable: true })
   titulo: string | null;
 
-  @Column({ type: 'varchar', length: 255 })
-  descricao: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+descricao: string | null;
 
   @Column({ type: 'numeric', precision: 10, scale: 2 })
   valor: string;

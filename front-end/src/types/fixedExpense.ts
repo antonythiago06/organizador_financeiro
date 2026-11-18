@@ -1,14 +1,11 @@
 /**
  * Modelos da seção de Gastos Fixos.
  *
- * O formato abaixo é o contrato que o front-end espera receber do back-end.
- * Enquanto as rotas de gastos fixos não existem, os dados são mantidos no
- * `localStorage` por `lib/fixedExpenses.ts` para permitir testar o fluxo
- * completo no navegador.
- *
- * TODO [BACKEND]: Padronizar a resposta de `/api/fixed-expenses` neste formato.
- * `dueDay` deve ser um inteiro entre 1 e 31 e `payments[].paidAt` deve trafegar
- * como `YYYY-MM-DD` para não sofrer deslocamento de fuso horário.
+ * O formato abaixo é o contrato devolvido por `/fixed-expenses` (consumido por
+ * `lib/fixedExpensesApi.ts`). `dueDay` é um inteiro entre 1 e 31 e
+ * `payments[].paidAt` trafega como `YYYY-MM-DD` para não sofrer deslocamento
+ * de fuso horário. Os pagamentos vêm das movimentações (JOIN com a categoria
+ * "Gastos Fixos" e o título do gasto).
  *
  * ---------------------------------------------------------------------------
  * Pontos de integração com o banco de dados
@@ -107,6 +104,8 @@ export type FixedExpensePayment = {
   accountName: string;
   /** Nome do arquivo de comprovante, quando enviado. */
   receiptName: string | null;
+  /** Rota do comprovante (`GET /transactions/:id/receipt`), quando houver. */
+  receipt?: { url: string } | null;
 };
 
 /** Gasto fixo recorrente cadastrado pelo usuário. */
@@ -122,6 +121,7 @@ export type FixedExpense = {
    * futuro sem quebrar o contrato atual.
    */
   category: string;
-  createdAt: string;
+  /** Pode vir `null`: a tabela `gasto_fixo` não guarda a data de criação. */
+  createdAt: string | null;
   payments: FixedExpensePayment[];
 };

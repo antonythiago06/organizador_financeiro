@@ -196,7 +196,7 @@ export class TransactionsService {
           idContaFinanceira: dto.accountId,
           idCategoria: dto.categoryId,
           titulo: dto.title,
-          descricao: dto.description ?? '',
+          descricao: dto.description?.trim() || null,
           valor: dto.amount.toFixed(2),
           tipo: TYPE_TO_DB[dto.type],
           dataTransacao: dto.date,
@@ -242,7 +242,7 @@ export class TransactionsService {
         }
 
         if (dto.description !== undefined) {
-          existing.descricao = dto.description;
+          existing.descricao = dto.description.trim() || null;
         }
 
         if (dto.amount !== undefined) {

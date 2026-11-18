@@ -34,15 +34,7 @@ function Login() {
         return;
       }
 
-      localStorage.removeItem("admin_access");
       localStorage.setItem("access_token", data.access_token);
-
-      // O back-end devolve a role no login: admin vai para o painel
-      // administrativo; usuário comum segue para o dashboard financeiro.
-      if (data.user?.role === "ADMIN") {
-        window.location.href = "/admin";
-        return;
-      }
 
       alert("Login realizado com sucesso!");
 
@@ -75,7 +67,7 @@ function Login() {
         </p>
       </header>
 
-      <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
         <Input
           label="E-mail"
           type="email"

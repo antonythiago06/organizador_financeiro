@@ -1,5 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
 import { X } from "lucide-react";
@@ -20,7 +19,7 @@ type AccountModalProps = {
    */
   account?: Account | null;
   onClose: () => void;
-  onSubmit: (account: NewAccountInput) => void | Promise<void>;
+  onSubmit: (account: NewAccountInput) => void;
 };
 
 type AccountModalContentProps = Omit<AccountModalProps, "isOpen">;
@@ -84,30 +83,27 @@ function AccountModalContent({
     };
   }, [onClose]);
 
-  
-const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-  event.preventDefault();
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-  const trimmedName = name.trim();
+    const trimmedName = name.trim();
 
-  if (!trimmedName) {
-    setNameError("Informe o nome da conta.");
-    return;
-  }
+    if (!trimmedName) {
+      setNameError("Informe um nome para a conta.");
+      nameInputRef.current?.focus();
+      return;
+    }
 
-  setNameError("");
-
-  try {
-    await onSubmit({
+    // O Dashboard decide se deve criar ou atualizar a conta. Ao integrar com o
+    // back-end, este callback pode disparar POST /accounts ou PUT /accounts/:id.
+    onSubmit({
       name: trimmedName,
       type,
       balance,
     });
-  } catch (error) {
-    console.error("Erro ao enviar conta:", error);
-  }
-};
 
+    onClose();
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

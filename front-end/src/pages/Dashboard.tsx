@@ -12,26 +12,16 @@ import {
   Wallet,
 } from "lucide-react";
 
-import DashboardNavbar, {
-  type DashboardNavItem,
-} from "../components/dashboard/DashboardNavbar";
+import DashboardNavbar from "../components/dashboard/DashboardNavbar";
 import AccountCard from "../components/dashboard/AccountCard";
 import DashboardCard from "../components/dashboard/DashboardCard";
 import EmptyStateCard from "../components/dashboard/EmptyStateCard";
 import SummaryCard from "../components/dashboard/SummaryCard";
 import AccountModal from "../components/modals/AccountModal";
+import { useAuthenticatedUser } from "../hooks/useAuthenticatedUser";
+import { API_URL } from "../lib/api";
+import { DASHBOARD_NAV_ITEMS } from "../lib/navigation";
 import type { Account, NewAccountInput } from "../types/account";
-
-const API_URL = "http://localhost:3000/api";
-
-const NAV_ITEMS: DashboardNavItem[] = [
-  { key: "overview", label: "visão geral" },
-  { key: "transactions", label: "movimentações" },
-  { key: "fixed-expenses", label: "gastos fixos" },
-  { key: "goals", label: "metas financeiras" },
-  { key: "purchases", label: "controle de compras" },
-  { key: "simulation", label: "simulação gastos futuros" },
-];
 
 export type TransactionType = "income" | "expense";
 
@@ -65,8 +55,8 @@ export type Goal = {
 };
 
 function Dashboard() {
+  const userName = useAuthenticatedUser();
   const [activeNav, setActiveNav] = useState("overview");
-  const [userName, setUserName] = useState("Usuário");
   const [isLoading, setIsLoading] = useState(false);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -90,7 +80,7 @@ function Dashboard() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadAuthenticatedUser() {
+    async function loadAccounts() {
       const token = localStorage.getItem("access_token");
 
       if (!token) {
@@ -99,37 +89,38 @@ function Dashboard() {
       }
 
       try {
-        const response = await fetch(`${API_URL}/auth/me`, {
+        const response = await fetch(`${API_URL}/accounts`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
         if (!response.ok) {
-          localStorage.removeItem("access_token");
-          window.location.replace("/login");
-          return;
+          throw new Error("Não foi possível carregar as contas.");
         }
 
-        const user = await response.json();
+        const data: Account[] = await response.json();
+        const normalizedAccounts = data.map((account) => ({
+          ...account,
+          id: String(account.id),
+          balance: Number(account.balance),
+        }));
 
         if (isMounted) {
-          setUserName(user.name || user.nome || "Usuário");
+          setAccounts(normalizedAccounts);
+          setActiveAccountIndex(0);
         }
-      } catch {
-        if (isMounted) {
-          setUserName("Usuário");
-        }
+      } catch (error) {
+        console.error("Erro ao carregar contas:", error);
       }
     }
 
-    loadAuthenticatedUser();
+    loadAccounts();
 
     return () => {
       isMounted = false;
     };
   }, []);
-
 
   useEffect(() => {
     let isMounted = true;
@@ -195,7 +186,11 @@ function Dashboard() {
   const hasTransactions = transactions.length > 0;
   const hasGoals = goals.length > 0;
 
+  // O saldo já vem calculado do servidor (GET /accounts).
   const activeAccount = accounts[activeAccountIndex] ?? accounts[0] ?? null;
+
+  const availableBalance =
+    transactions.length > 0 ? balance : (activeAccount?.balance ?? null);
 
   const handleOpenCreateAccountModal = useCallback(() => {
     setEditingAccount(null);
@@ -216,58 +211,147 @@ function Dashboard() {
     setEditingAccount(null);
   }, []);
 
+
   const handleSubmitAccount = useCallback(
-    (input: NewAccountInput) => {
-      if (editingAccount) {
-        // Integração futura: substituir pela chamada PUT/PATCH /accounts/:id.
-        setAccounts((currentAccounts) =>
-          currentAccounts.map((account) =>
-            account.id === editingAccount.id
-              ? { ...account, ...input }
-              : account,
-          ),
-        );
+    async (input: NewAccountInput) => {
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        window.location.replace("/login");
         return;
       }
 
-      // Integração futura: substituir por POST /accounts e usar o id retornado.
-      const newAccount: Account = {
-        id: crypto.randomUUID(),
-        ...input,
-      };
+      const isEditing = editingAccount !== null;
 
-      setAccounts((currentAccounts) => [...currentAccounts, newAccount]);
-      // Exibe imediatamente a conta recém-cadastrada.
-      setActiveAccountIndex(accounts.length);
+      const url = isEditing
+        ? `${API_URL}/accounts/${editingAccount.id}`
+        : `${API_URL}/accounts`;
+
+      try {
+        const response = await fetch(url, {
+          method: isEditing ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(input),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+
+          throw new Error(
+            errorData?.message || "Não foi possível salvar a conta."
+          );
+        }
+
+
+        const data = await response.json();
+        const savedId = String(data.id ?? editingAccount?.id ?? "");
+
+        const accountsResponse = await fetch(`${API_URL}/accounts`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!accountsResponse.ok) {
+          throw new Error("Conta salva, mas não foi possível atualizar a lista.");
+        }
+
+        const accountsData: Account[] = await accountsResponse.json();
+
+        const refreshedAccounts = accountsData.map((account) => ({
+          ...account,
+          id: String(account.id),
+          balance: Number(account.balance),
+        }));
+
+        setAccounts(refreshedAccounts);
+
+        const updatedIndex = refreshedAccounts.findIndex(
+          (account) => account.id === savedId
+        );
+
+        if (updatedIndex >= 0) {
+          setActiveAccountIndex(updatedIndex);
+        } else if (refreshedAccounts.length > 0) {
+          setActiveAccountIndex(0);
+        }
+
+        handleCloseAccountModal();
+      } catch (error) {
+        console.error("Erro ao salvar conta:", error);
+
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : "Ocorreu um erro ao salvar a conta."
+        );
+      }
     },
-    [accounts.length, editingAccount],
+    [editingAccount, handleCloseAccountModal],
   );
 
-  const handleDeleteAccount = useCallback(() => {
-    if (!activeAccount) {
-      return;
-    }
+
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!activeAccount) return;
 
     const confirmed = window.confirm(
-      `Tem certeza que deseja excluir a conta "${activeAccount.name}"? Essa ação não pode ser desfeita.`,
+      `Tem certeza que deseja excluir a conta "${activeAccount.name}"? Essa ação não pode ser desfeita.`
     );
 
-    if (!confirmed) {
+    if (!confirmed) return;
+
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      window.location.replace("/login");
       return;
     }
 
-    // Integração futura: chamar DELETE /accounts/:id e atualizar o estado
-    // somente após a resposta de sucesso do back-end.
-    const remainingAccounts = accounts.filter(
-      (account) => account.id !== activeAccount.id,
-    );
+    try {
+      const response = await fetch(
+        `${API_URL}/accounts/${activeAccount.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-    setAccounts(remainingAccounts);
-    setActiveAccountIndex((currentIndex) =>
-      remainingAccounts.length === 0
-        ? 0
-        : Math.min(currentIndex, remainingAccounts.length - 1),
-    );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+
+        throw new Error(
+          errorData?.message || "Não foi possível excluir a conta."
+        );
+      }
+
+      const remainingAccounts = accounts.filter(
+        (account) => account.id !== activeAccount.id
+      );
+
+      setAccounts(remainingAccounts);
+
+      // O servidor remove as movimentações (e seus comprovantes) da conta
+      // excluída.
+      setActiveAccountIndex((currentIndex) =>
+        remainingAccounts.length === 0
+          ? 0
+          : Math.min(currentIndex, remainingAccounts.length - 1)
+      );
+    } catch (error) {
+      console.error("Erro ao excluir conta:", error);
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Ocorreu um erro ao excluir a conta."
+      );
+    }
   }, [accounts, activeAccount]);
 
   const handleSwitchAccount = useCallback(() => {
@@ -283,7 +367,7 @@ function Dashboard() {
   return (
     <div className="min-h-svh bg-slate-50">
       <DashboardNavbar
-        items={NAV_ITEMS}
+        items={DASHBOARD_NAV_ITEMS}
         activeKey={activeNav}
         userName={userName}
         onNavigate={setActiveNav}
@@ -328,7 +412,7 @@ function Dashboard() {
             label="Saldo disponível"
             icon={Wallet}
             tone="brand"
-            value={balance}
+            value={availableBalance}
             hint="Suas informações aparecerão aqui após o primeiro lançamento."
           />
 

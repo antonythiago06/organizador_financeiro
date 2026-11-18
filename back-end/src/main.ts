@@ -6,8 +6,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    credentials: true,
+  origin: [
+    'http://localhost:5173',
+    'https://organizador-financeiro-ten.vercel.app',
+    'https://organizador-financeiro-git-main-corinthians6.vercel.app',
+  ],
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  credentials: true,
   });
   
   app.setGlobalPrefix('api'); 

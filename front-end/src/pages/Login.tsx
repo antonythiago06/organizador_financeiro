@@ -14,6 +14,24 @@ function Login() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    /*
+     * TODO [BACKEND]: Acesso administrativo provisório com usuário "admin" e
+     * senha "admin" (ou e-mail admin@organizae.com). Remover este atalho
+     * quando o login devolver a role/claim ADMIN no JWT.
+     */
+    const isProvisionalAdmin =
+      (normalizedEmail === "admin" ||
+        normalizedEmail === "admin@organizae.com") &&
+      password === "admin";
+
+    if (isProvisionalAdmin) {
+      localStorage.setItem("admin_access", "true");
+      window.location.href = "/admin";
+      return;
+    }
+
     try {
       const response = await fetch("http://localhost:3000/auth/login", {
         method: "POST",
@@ -33,6 +51,7 @@ function Login() {
         return;
       }
 
+      localStorage.removeItem("admin_access");
       localStorage.setItem("access_token", data.access_token);
 
       alert("Login realizado com sucesso!");
@@ -66,7 +85,7 @@ function Login() {
         </p>
       </header>
 
-      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-4">
         <Input
           label="E-mail"
           type="email"

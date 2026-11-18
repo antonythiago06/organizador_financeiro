@@ -152,7 +152,7 @@ function VerifyCode() {
     const fullCode = code.join("");
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/verify-code`, {
+      const response = await fetch(`${API_URL}/auth/verify-code`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

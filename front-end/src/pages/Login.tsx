@@ -16,7 +16,7 @@ function Login() {
     event.preventDefault();
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -45,7 +45,7 @@ function Login() {
   }
 
   function handleGoogleLogin() {
-    window.location.href = "http://localhost:3000/api/auth/google";
+    window.location.href = `${API_URL}/auth/google`;
   }
 
   return (

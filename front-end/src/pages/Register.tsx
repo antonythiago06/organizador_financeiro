@@ -52,7 +52,7 @@ function Register() {
   }
 
   function handleGoogleRegister() {
-    window.location.href = `${API_URL}/api/auth/google`;
+    window.location.href = `${API_URL}/auth/google`;
   }
 
   return (

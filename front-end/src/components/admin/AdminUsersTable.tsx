@@ -91,7 +91,7 @@ function AdminUsersTable({
   onPageChange,
 }: AdminUsersTableProps) {
   const userNoun = totalUsers === 1 ? "usuário cadastrado" : "usuários cadastrados";
-  const accountNoun = totalUsers === 1 ? "conta" : "contas";
+  const badgeNoun = totalUsers === 1 ? "usuário" : "usuários";
 
   return (
     <section
@@ -118,7 +118,7 @@ function AdminUsersTable({
         </div>
 
         <span className="inline-flex w-fit items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-[#4F26E9]">
-          {totalUsers} {accountNoun}
+          {totalUsers} {badgeNoun}
         </span>
       </header>
 

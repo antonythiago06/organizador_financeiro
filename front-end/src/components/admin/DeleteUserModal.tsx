@@ -1,4 +1,4 @@
-import { AlertTriangle, UserRound, UserX } from "lucide-react";
+import { AlertTriangle, UserX } from "lucide-react";
 
 import type { AdminUser } from "../../types/admin";
 import ModalShell from "../modals/ModalShell";
@@ -60,27 +60,19 @@ function DeleteUserModal({
             {initial}
           </span>
 
-          <div className="flex min-w-0 items-center gap-3">
-            <UserRound
-              size={17}
-              aria-hidden="true"
-              className="hidden shrink-0 text-slate-400 sm:block"
-            />
-
-            <div className="min-w-0">
-              <p
-                className="truncate text-sm font-semibold text-slate-900"
-                title={user.name}
-              >
-                {user.name}
-              </p>
-              <p
-                className="mt-0.5 truncate text-sm text-slate-500"
-                title={user.email}
-              >
-                {user.email}
-              </p>
-            </div>
+          <div className="min-w-0">
+            <p
+              className="truncate text-sm font-semibold text-slate-900"
+              title={user.name}
+            >
+              {user.name}
+            </p>
+            <p
+              className="mt-0.5 truncate text-sm text-slate-500"
+              title={user.email}
+            >
+              {user.email}
+            </p>
           </div>
         </div>
 

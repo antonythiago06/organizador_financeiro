@@ -1,0 +1,330 @@
+[1mdiff --git a/back-end/src/auth/auth.service.ts b/back-end/src/auth/auth.service.ts[m
+[1mindex 5f50662c..ec35362a 100644[m
+[1m--- a/back-end/src/auth/auth.service.ts[m
+[1m+++ b/back-end/src/auth/auth.service.ts[m
+[36m@@ -1,9 +1,19 @@[m
+[31m-import { ConflictException, Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';[m
+[32m+[m
+[32m+[m[32mimport {[m
+[32m+[m[32m  BadRequestException,[m
+[32m+[m[32m  ConflictException,[m
+[32m+[m[32m  Injectable,[m
+[32m+[m[32m  UnauthorizedException,[m
+[32m+[m[32m} from '@nestjs/common';[m
+ import { JwtService } from '@nestjs/jwt';[m
+ import * as bcrypt from 'bcrypt';[m
+[32m+[m
+ import { UsersService } from '../users/users.service';[m
+[32m+[m[32mimport { MailService } from '../mail/mail.service';[m
+[32m+[m
+ import { LoginDto } from './dto/login.dto';[m
+ import { RegisterDto } from './dto/register.dto';[m
+[32m+[m
+ import {[m
+   ADMIN_ROLE,[m
+   USER_ROLE,[m
+[36m@@ -22,150 +32,212 @@[m [mexport class AuthService {[m
+   async register(dto: RegisterDto) {[m
+     const email = dto.email.trim().toLowerCase();[m
+ [m
+[31m-    // O e-mail do administrador é reservado: ninguém cria conta comum com ele.[m
+     if (isAdminEmail(email)) {[m
+[31m-      throw new ConflictException('E-mail já cadastrado');[m
+[32m+[m[32m      throw new ConflictException('E-mail já cadastrado.');[m
+     }[m
+ [m
+     const existingUser = await this.usersService.findByEmail(email);[m
+ [m
+     if (existingUser) {[m
+[31m-      throw new ConflictException('E-mail já cadastrado');[m
+[32m+[m[32m      throw new ConflictException('E-mail já cadastrado.');[m
+     }[m
+ [m
+     const senhaHash = await bcrypt.hash(dto.password, 10);[m
+[31m-    const nomeRandom = email.split('@')[0];[m
+[32m+[m[32m    const nome = email.split('@')[0];[m
+ [m
+     const usuario = await this.usersService.create({[m
+[31m-      nome: nomeRandom.charAt(0).toUpperCase() + nomeRandom.slice(1),[m
+[32m+[m[32m      nome: nome.charAt(0).toUpperCase() + nome.slice(1),[m
+       email,[m
+       senhaHash,[m
+     });[m
+ [m
+     return this.generateToken(usuario);[m
+   }[m
+[31m-  async validateGoogleUser(googleUser: {[m
+[31m-  googleId: string;[m
+[31m-  email: string;[m
+[31m-  emailVerified?: boolean;[m
+[31m-  name: string;[m
+[31m-  avatar: string | null;[m
+[31m-}) {[m
+[31m-  const email = googleUser.email.trim().toLowerCase();[m
+[31m-[m
+[31m-  // Conta Google do administrador: só entra se o e-mail for verificado pelo[m
+[31m-  // Google. Não é criada/consultada na tabela `usuario`.[m
+[31m-  if (isAdminEmail(email)) {[m
+[31m-    if (!googleUser.emailVerified) {[m
+[31m-      throw new UnauthorizedException('E-mail do Google não verificado');[m
+[32m+[m
+[32m+[m[32m  async login(dto: LoginDto) {[m
+[32m+[m[32m    const email = dto.email.trim().toLowerCase();[m
+[32m+[m
+[32m+[m[32m    // Autenticação administrativa por e-mail e senha.[m
+[32m+[m[32m    if (isAdminEmail(email)) {[m
+[32m+[m[32m      const adminHash = process.env.ADMIN_PASSWORD_HASH;[m
+[32m+[m
+[32m+[m[32m      if ([m
+[32m+[m[32m        !adminHash ||[m
+[32m+[m[32m        !(await bcrypt.compare(dto.password, adminHash))[m
+[32m+[m[32m      ) {[m
+[32m+[m[32m        throw new UnauthorizedException('Credenciais inválidas.');[m
+[32m+[m[32m      }[m
+[32m+[m
+[32m+[m[32m      return this.generateAdminToken();[m
+     }[m
+ [m
+[31m-    return this.generateAdminToken();[m
+[32m+[m[32m    const usuario = await this.usersService.findByEmail(email);[m
+[32m+[m
+[32m+[m[32m    if ([m
+[32m+[m[32m      !usuario ||[m
+[32m+[m[32m      !usuario.senhaHash ||[m
+[32m+[m[32m      !(await bcrypt.compare(dto.password, usuario.senhaHash))[m
+[32m+[m[32m    ) {[m
+[32m+[m[32m      throw new UnauthorizedException('Credenciais inválidas.');[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    return this.generateToken(usuario);[m
+   }[m
+ [m
+[31m-  let usuario = await this.usersService.findByEmail(email);[m
+[32m+[m[32m  async validateGoogleUser(googleUser: {[m
+[32m+[m[32m    googleId: string;[m
+[32m+[m[32m    email: string;[m
+[32m+[m[32m    emailVerified?: boolean;[m
+[32m+[m[32m    name: string;[m
+[32m+[m[32m    avatar: string | null;[m
+[32m+[m[32m  }) {[m
+[32m+[m[32m    const email = googleUser.email?.trim().toLowerCase();[m
+[32m+[m
+[32m+[m[32m    if (!email) {[m
+[32m+[m[32m      throw new UnauthorizedException([m
+[32m+[m[32m        'Não foi possível obter o e-mail da conta Google.',[m
+[32m+[m[32m      );[m
+[32m+[m[32m    }[m
+ [m
+[31m-  if (!usuario) {[m
+[31m-    usuario = await this.usersService.create({[m
+[31m-      nome: googleUser.name,[m
+[31m-      email: email,[m
+[31m-      senhaHash: '',[m
+[31m-    });[m
+[32m+[m[32m    // O administrador precisa ter o e-mail verificado pelo Google.[m
+[32m+[m[32m    if (isAdminEmail(email)) {[m
+[32m+[m[32m      if (!googleUser.emailVerified) {[m
+[32m+[m[32m        throw new UnauthorizedException([m
+[32m+[m[32m          'E-mail do Google não verificado.',[m
+[32m+[m[32m        );[m
+[32m+[m[32m      }[m
+[32m+[m
+[32m+[m[32m      return this.generateAdminToken();[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    let usuario = await this.usersService.findByEmail(email);[m
+[32m+[m
+[32m+[m[32m    if (!usuario) {[m
+[32m+[m[32m      usuario = await this.usersService.create({[m
+[32m+[m[32m        nome: googleUser.name,[m
+[32m+[m[32m        email,[m
+[32m+[m[32m        senhaHash: '',[m
+[32m+[m[32m      });[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    return this.generateToken(usuario);[m
+   }[m
+ [m
+   async forgotPassword(email: string) {[m
+[31m-    const usuario = await this.usersService.findByEmail(email);[m
+[32m+[m[32m    const normalizedEmail = email.trim().toLowerCase();[m
+[32m+[m
+[32m+[m[32m    // Não permite recuperação da conta administrativa por este fluxo.[m
+[32m+[m[32m    if (isAdminEmail(normalizedEmail)) {[m
+[32m+[m[32m      return {[m
+[32m+[m[32m        message:[m
+[32m+[m[32m          'Se o e-mail existir, enviaremos um código de recuperação.',[m
+[32m+[m[32m      };[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    const usuario = await this.usersService.findByEmail(normalizedEmail);[m
+[32m+[m
+     if (!usuario) {[m
+[31m-      return { message: 'Se o e-mail existir, enviaremos um código de recuperação.' };[m
+[32m+[m[32m      return {[m
+[32m+[m[32m        message:[m
+[32m+[m[32m          'Se o e-mail existir, enviaremos um código de recuperação.',[m
+[32m+[m[32m      };[m
+     }[m
+ [m
+     const code = Math.floor(10000 + Math.random() * 90000).toString();[m
+[32m+[m
+     const expires = new Date();[m
+     expires.setMinutes(expires.getMinutes() + 15);[m
+ [m
+[31m-    // Login por e-mail/senha do administrador (opcional): usa o hash bcrypt[m
+[31m-    // guardado em ADMIN_PASSWORD_HASH. Sem essa variável, o admin só entra[m
+[31m-    // pelo Google.[m
+[31m-    if (isAdminEmail(email)) {[m
+[31m-      const adminHash = process.env.ADMIN_PASSWORD_HASH;[m
+[32m+[m[32m    await this.usersService.updateResetToken([m
+[32m+[m[32m      usuario.id,[m
+[32m+[m[32m      code,[m
+[32m+[m[32m      expires,[m
+[32m+[m[32m    );[m
+ [m
+[31m-      if (!adminHash) {[m
+[31m-        throw new UnauthorizedException('Credenciais inválidas');[m
+[31m-      }[m
+[32m+[m[32m    await this.mailService.sendPasswordResetCode([m
+[32m+[m[32m      usuario.email,[m
+[32m+[m[32m      code,[m
+[32m+[m[32m    );[m
+ [m
+[31m-      const adminSenhaValida = await bcrypt.compare(dto.password, adminHash);[m
+[32m+[m[32m    return {[m
+[32m+[m[32m      message: 'Código enviado com sucesso.',[m
+[32m+[m[32m    };[m
+[32m+[m[32m  }[m
+ [m
+[31m-      if (!adminSenhaValida) {[m
+[31m-        throw new UnauthorizedException('Credenciais inválidas');[m
+[31m-      }[m
+[32m+[m[32m  async verifyCode(email: string, code: string) {[m
+[32m+[m[32m    const normalizedEmail = email.trim().toLowerCase();[m
+ [m
+[31m-      return this.generateAdminToken();[m
+[31m-    }[m
+[32m+[m[32m    const usuario = await this.usersService.findForPasswordReset([m
+[32m+[m[32m      normalizedEmail,[m
+[32m+[m[32m    );[m
+ [m
+[31m-    const usuario = await this.usersService.findByEmail(email);[m
+     this.validarResetToken(usuario, code);[m
+ [m
+[31m-    return { message: 'Código válido com sucesso.' };[m
+[32m+[m[32m    return {[m
+[32m+[m[32m      message: 'Código válido com sucesso.',[m
+[32m+[m[32m    };[m
+   }[m
+ [m
+[31m-  async resetPassword(email: string, code: string, novaSenha: string) {[m
+[31m-    const usuario = await this.usersService.findForPasswordReset(email);[m
+[32m+[m[32m  async resetPassword([m
+[32m+[m[32m    email: string,[m
+[32m+[m[32m    code: string,[m
+[32m+[m[32m    novaSenha: string,[m
+[32m+[m[32m  ) {[m
+[32m+[m[32m    const normalizedEmail = email.trim().toLowerCase();[m
+[32m+[m
+[32m+[m[32m    const usuario = await this.usersService.findForPasswordReset([m
+[32m+[m[32m      normalizedEmail,[m
+[32m+[m[32m    );[m
+[32m+[m
+[32m+[m[32m    this.validarResetToken(usuario, code);[m
+ [m
+     if (!usuario) {[m
+       throw new BadRequestException('Utilizador não encontrado.');[m
+     }[m
+ [m
+[31m-    this.validarResetToken(usuario, code);[m
+[31m-[m
+     if (usuario.senhaHash) {[m
+[31m-      const isSamePassword = await bcrypt.compare(novaSenha, usuario.senhaHash);[m
+[31m-      if (isSamePassword) {[m
+[31m-        throw new BadRequestException('A nova senha não pode ser igual à senha anterior.');[m
+[32m+[m[32m      const mesmaSenha = await bcrypt.compare([m
+[32m+[m[32m        novaSenha,[m
+[32m+[m[32m        usuario.senhaHash,[m
+[32m+[m[32m      );[m
+[32m+[m
+[32m+[m[32m      if (mesmaSenha) {[m
+[32m+[m[32m        throw new BadRequestException([m
+[32m+[m[32m          'A nova senha não pode ser igual à senha anterior.',[m
+[32m+[m[32m        );[m
+       }[m
+     }[m
+ [m
+     const senhaHash = await bcrypt.hash(novaSenha, 10);[m
+[31m-    await this.usersService.updatePasswordAndClearToken(usuario.id, senhaHash);[m
+ [m
+[31m-    return { message: 'Senha redefinida com sucesso!' };[m
+[32m+[m[32m    await this.usersService.updatePasswordAndClearToken([m
+[32m+[m[32m      usuario.id,[m
+[32m+[m[32m      senhaHash,[m
+[32m+[m[32m    );[m
+[32m+[m
+[32m+[m[32m    return {[m
+[32m+[m[32m      message: 'Senha redefinida com sucesso!',[m
+[32m+[m[32m    };[m
+   }[m
+ [m
+   private validarResetToken(usuario: any, code: string) {[m
+[31m-    if (!usuario || usuario.resetToken !== code) {[m
+[32m+[m[32m    if (!usuario || !usuario.resetToken || usuario.resetToken !== code) {[m
+       throw new BadRequestException('Código inválido.');[m
+     }[m
+[31m-    if (usuario.resetTokenExpires && new Date() > usuario.resetTokenExpires) {[m
+[31m-      throw new BadRequestException('Este código expirou.');[m
+[31m-    }[m
+[31m-  }[m
+[31m-[m
+[31m-  async validateGoogleUser(googleUser: { googleId: string; email: string; name: string; avatar: string | null }) {[m
+[31m-    const email = googleUser.email.trim().toLowerCase();[m
+[31m-    let usuario = await this.usersService.findByEmail(email);[m
+[31m-[m
+[31m-    if (!usuario) {[m
+[31m-      usuario = await this.usersService.create({[m
+[31m-        nome: googleUser.name,[m
+[31m-        email: email,[m
+[31m-        senhaHash: '',[m
+[31m-      });[m
+[31m-    }[m
+[31m-[m
+[31m-    return this.generateToken(usuario);[m
+[31m-  }[m
+ [m
+[31m-  async login(dto: LoginDto) {[m
+[31m-    const email = dto.email.trim().toLowerCase();[m
+[31m-    const usuario = await this.usersService.findByEmail(email);[m
+[31m-[m
+[31m-    if (!usuario || !(await bcrypt.compare(dto.password, usuario.senhaHash))) {[m
+[31m-      throw new UnauthorizedException('Credenciais inválidas');[m
+[32m+[m[32m    if ([m
+[32m+[m[32m      !usuario.resetTokenExpires ||[m
+[32m+[m[32m      new Date() > new Date(usuario.resetTokenExpires)[m
+[32m+[m[32m    ) {[m
+[32m+[m[32m      throw new BadRequestException('Este código expirou.');[m
+     }[m
+[31m-[m
+[31m-    return this.generateToken(usuario);[m
+   }[m
+ [m
+[31m-  generateToken(usuario: { id: number; nome: string; email: string }) {[m
+[32m+[m[32m  generateToken(usuario: {[m
+[32m+[m[32m    id: number;[m
+[32m+[m[32m    nome: string;[m
+[32m+[m[32m    email: string;[m
+[32m+[m[32m  }) {[m
+     const payload = {[m
+       sub: usuario.id,[m
+       email: usuario.email,[m
+[36m@@ -184,7 +256,7 @@[m [mexport class AuthService {[m
+     };[m
+   }[m
+ [m
+[31m-  generateAdminToken() {[m
+[32m+[m[32m  private generateAdminToken() {[m
+     const email = getAdminEmail();[m
+ [m
+     const payload = {[m
